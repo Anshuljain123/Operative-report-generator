@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operative Report Generator — Pinnacle Pain Management</title>
+
+  <!-- docx.js for client-side Word document generation -->
+  <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      background: #0d1b2a;
+      color: #e0e6f0;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    .app-header {
+      max-width: 820px;
+      margin: 0 auto 24px;
+      text-align: center;
+    }
+    .app-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #5ba4e5;
+      letter-spacing: .5px;
+    }
+    .app-header p { font-size: 12px; color: #6b84a0; margin-top: 4px; }
+
+    .card {
+      max-width: 820px;
+      margin: 0 auto;
+      background: #162032;
+      border: 1px solid #253347;
+      border-radius: 10px;
+      padding: 28px 24px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #5ba4e5;
+      border-bottom: 1px solid #253347;
+      padding-bottom: 6px;
+      margin: 20px 0 14px;
+    }
+    .section-title:first-of-type { margin-top: 0; }
+
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+    .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+    .grid.one { grid-template-columns: 1fr; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.span2 { grid-column: span 2; }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #7a99bb;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    select, input[type="text"], input[type="date"] {
+      background: #1e2d40;
+      border: 1px solid #2e4059;
+      border-radius: 5px;
+      color: #d8e6f2;
+      font-size: 13px;
+      font-family: inherit;
+      padding: 8px 10px;
+      width: 100%;
+      transition: border-color .15s;
+      appearance: auto;
+    }
+    select:focus, input:focus { outline: none; border-color: #5ba4e5; }
+
+    /* ── Toggles ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1a2a3d;
+      border: 1px solid #2e4059;
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+    .toggle-row label { font-size: 12px; text-transform: none; letter-spacing: 0; color: #a0b8d0; cursor: pointer; }
+    .toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #5ba4e5; cursor: pointer; }
+
+    /* ── Procedure section ── */
+    #procedureSection { display: none; }
+
+    /* ── CPT banner ── */
+    #cptBanner {
+      display: none;
+      background: #0f2a1a;
+      border: 1px solid #1e5c30;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #4caf7d;
+      margin-top: 12px;
+    }
+    #cptBanner strong { font-size: 13px; }
+
+    /* ── Generate button ── */
+    .btn-generate {
+      display: block;
+      width: 100%;
+      background: #1a56a0;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 24px;
+      letter-spacing: .3px;
+      transition: background .15s;
+    }
+    .btn-generate:hover { background: #1e63bb; }
+    .btn-generate:disabled { background: #2e4059; color: #6b84a0; cursor: not-allowed; }
+
+    /* ── Status ── */
+    #status {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #4caf7d;
+      text-align: center;
+      min-height: 18px;
+    }
+
+    /* ── Procedure info box ── */
+    .proc-info {
+      background: #1a2a3d;
+      border: 1px solid #2e4059;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #6b84a0;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .proc-info strong { color: #a0b8d0; }
+
+    @media (max-width: 520px) {
+      .grid, .grid.three { grid-template-columns: 1fr; }
+      .field.span2 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>Operative Report Generator</h1>
+  <p>Pinnacle Pain Management Specialists &nbsp;&middot;&nbsp; Hinsdale, IL</p>
+</div>
+
+<div class="card">
+
+  <!-- Patient Info -->
+  <div class="section-title">Patient Information</div>
+  <div class="grid">
+    <div class="field span2">
+      <label>Patient Name</label>
+      <input type="text" id="patientName" placeholder="First Last" />
+    </div>
+    <div class="field">
+      <label>Date of Birth</label>
+      <input type="date" id="dob" />
+    </div>
+    <div class="field">
+      <label>Date of Visit</label>
+      <input type="date" id="dov" />
+    </div>
+  </div>
+
+  <!-- Physician / Anesthesia -->
+  <div class="section-title">Provider</div>
+  <div class="grid">
+    <div class="field">
+      <label>Dictated By</label>
+      <select id="physician">
+        <option value="Neeraj Jain M.D.">Neeraj Jain M.D.</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Anesthesiologist</label>
+      <select id="anesthesiologist" onchange="onAnesChange()">
+        <option value="Local Anesthesia Only">Local Anesthesia Only</option>
+        <option value="Omar Othman, M.D.">Omar Othman, M.D.</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="toggle-row" style="margin-top:10px;">
+    <input type="checkbox" id="ivSedation" onchange="onIVChange()" />
+    <label for="ivSedation">IV Sedation administered</label>
+  </div>
+
+  <!-- Procedure Selection -->
+  <div class="section-title">Procedure</div>
+
+  <div class="grid one">
+    <div class="field">
+      <label>Procedure Type</label>
+      <select id="procedureType" onchange="onProcedureChange()">
+        <option value="">-- Select procedure --</option>
+        <optgroup label="Cervical">
+          <option value="CESI">Cervical Epidural Steroid Injection (CESI)</option>
+          <option value="CSNRB">Cervical Selective Nerve Root Block (SNRB)</option>
+          <option value="CMBB">Cervical Medial Branch Block (MBB)</option>
+          <option value="CFJI">Cervical Facet Joint Injection (FJI)</option>
+          <option value="CRFA">Cervical Radiofrequency Ablation (RFA)</option>
+        </optgroup>
+        <optgroup label="Lumbar">
+          <option value="LESI">Lumbar Epidural Steroid Injection (LESI)</option>
+          <option value="LMBB">Lumbar Medial Branch Block (MBB)</option>
+          <option value="LFJI">Lumbar Facet Joint Injection (FJI)</option>
+          <option value="LRFA">Lumbar Radiofrequency Ablation (RFA)</option>
+          <option value="LSNRB">Lumbar Selective Nerve Root Block (SNRB)</option>
+          <option value="LESI_TF">Lumbar Transforaminal ESI (TFESI)</option>
+        </optgroup>
+        <optgroup label="Sacral">
+          <option value="SIJ">Sacroiliac Joint Injection (SIJ)</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+
+  <!-- Dynamic procedure fields -->
+  <div id="procedureSection">
+
+    <div class="proc-info" id="procInfo"></div>
+
+    <div class="grid three" id="sideRow" style="display:none;">
+      <div class="field">
+        <label>Side</label>
+        <select id="side">
+          <option value="Left">Left</option>
+          <option value="Right">Right</option>
+          <option value="Bilateral">Bilateral</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Level(s)</label>
+        <select id="levels" multiple size="4" style="height:auto;"></select>
+      </div>
+      <div class="field">
+        <label>DRL5 Needle</label>
+        <div class="toggle-row" style="margin-top:4px;">
+          <input type="checkbox" id="drl5" />
+          <label for="drl5">Use DRL5 (5&Prime;)</label>
+        </div>
+      </div>
+    </div>
+
+    <div id="cptBanner"></div>
+
+  </div>
+
+  <button class="btn-generate" id="btnGenerate" onclick="generateReport()" disabled>
+    Generate Word Document
+  </button>
+  <div id="status"></div>
+
+</div><!-- /card -->
+
+<script>
+// ─── Procedure Definitions ────────────────────────────────────────────────────
+const PROCS = {
+  CESI: {
+    label: "Cervical Epidural Steroid Injection",
+    abbreviation: "CESI",
+    spine: "cervical",
+    approach: "interlaminar",
+    position: "prone",
+    needle: "22-gauge 3\u00bd-inch Tuohy",
+    levels: ["C3/C4","C4/C5","C5/C6","C6/C7","C7/T1"],
+    sides: false,
+    medications: "Preservative-free betamethasone 6mg/1mL + normal saline 2mL = 3mL total",
+    cpt: (side, levels) => "62321 (Cervical ESI, interlaminar, w/ imaging guidance), 77003",
+    info: "Interlaminar approach, midline needle placement, loss-of-resistance technique."
+  },
+  CSNRB: {
+    label: "Cervical Selective Nerve Root Block",
+    abbreviation: "SNRB",
+    spine: "cervical",
+    approach: "transforaminal",
+    position: "supine",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["C5/C6","C6/C7","C7/T1"],
+    sides: true,
+    medications: "Lidocaine 2% 0.25mL per level",
+    cpt: (side, levels) => "64413 x" + (side === "Bilateral" ? "2" : "1") + ", 77003",
+    info: "Transforaminal approach. Always bilateral in clinical practice."
+  },
+  CMBB: {
+    label: "Cervical Medial Branch Block",
+    abbreviation: "MBB",
+    spine: "cervical",
+    approach: "medial branch",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["C3","C4","C5","C6","C7"],
+    sides: true,
+    medications: "Bupivacaine 0.25% 0.5mL per level",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64490 (first), 64491 (second)" + (n >= 3 ? ", 64492 (third+)" : "") + ", 77003";
+    },
+    info: "Needle placed at articular pillar. Flush with saline after injection."
+  },
+  CFJI: {
+    label: "Cervical Facet Joint Injection",
+    abbreviation: "FJI",
+    spine: "cervical",
+    approach: "intra-articular",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["C2/C3","C3/C4","C4/C5","C5/C6","C6/C7","C7/T1"],
+    sides: true,
+    medications: "Triamcinolone 10mg + bupivacaine 0.25% 0.5mL per joint",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64490 (first), 64491 (second)" + (n >= 3 ? ", 64492 (additional)" : "") + ", 77003";
+    },
+    info: "Intra-articular injection into facet joint capsule under fluoroscopic guidance."
+  },
+  CRFA: {
+    label: "Cervical Radiofrequency Ablation",
+    abbreviation: "RFA",
+    spine: "cervical",
+    approach: "radiofrequency",
+    position: "prone",
+    needle: "22-gauge RFA cannula",
+    levels: ["C3","C4","C5","C6","C7"],
+    sides: true,
+    medications: "Bupivacaine 0.25% 0.5mL per level post-lesion",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64633 (first), 64634 (additional)" + (n >= 2 ? " x" + (n - 1) : "") + ", 77003";
+    },
+    info: "Lesioning was done at each medial branch. Temperature 80\u00b0C for 90 seconds."
+  },
+  LESI: {
+    label: "Lumbar Epidural Steroid Injection",
+    abbreviation: "LESI",
+    spine: "lumbar",
+    approach: "interlaminar",
+    position: "prone",
+    needle: "17-gauge Tuohy",
+    levels: ["L1/L2","L2/L3","L3/L4","L4/L5","L5/S1"],
+    sides: false,
+    medications: "Kenalog 40mg/1mL + normal saline 3mL = 4mL total",
+    cpt: (side, levels) => "62323 (Lumbar ESI, interlaminar, w/ imaging guidance), 77003",
+    info: "Interlaminar approach with loss-of-resistance technique."
+  },
+  LMBB: {
+    label: "Lumbar Medial Branch Block",
+    abbreviation: "MBB",
+    spine: "lumbar",
+    approach: "medial branch",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["L1","L2","L3","L4","L5","S1"],
+    sides: true,
+    medications: "Bupivacaine 0.25% 0.5mL per level",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64493 (first), 64494 (second)" + (n >= 3 ? ", 64495 (third+)" : "") + ", 77003";
+    },
+    info: "Needle placed at junction of SAP and transverse process."
+  },
+  LFJI: {
+    label: "Lumbar Facet Joint Injection",
+    abbreviation: "FJI",
+    spine: "lumbar",
+    approach: "intra-articular",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["L1/L2","L2/L3","L3/L4","L4/L5","L5/S1"],
+    sides: true,
+    medications: "Kenalog 10mg + bupivacaine 0.25% 0.5mL per joint",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64493 (first), 64494 (second)" + (n >= 3 ? ", 64495 (additional)" : "") + ", 77003";
+    },
+    info: "Intra-articular injection. Article varies: singular for one level, plural for multiple."
+  },
+  LRFA: {
+    label: "Lumbar Radiofrequency Ablation",
+    abbreviation: "RFA",
+    spine: "lumbar",
+    approach: "radiofrequency",
+    position: "prone",
+    needle: "22-gauge RFA cannula",
+    levels: ["L1","L2","L3","L4","L5","S1"],
+    sides: true,
+    medications: "Bupivacaine 0.25% 0.5mL post-lesion",
+    cpt: (side, levels) => {
+      const n = levels.length || 1;
+      return "64635 (first), 64636 (additional)" + (n >= 2 ? " x" + (n - 1) : "") + ", 77003";
+    },
+    info: "Lesioning was done two times at each medial branch. Temperature 80\u00b0C for 90 seconds."
+  },
+  LSNRB: {
+    label: "Lumbar Selective Nerve Root Block",
+    abbreviation: "SNRB",
+    spine: "lumbar",
+    approach: "transforaminal",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["L3","L4","L5","S1"],
+    sides: true,
+    medications: "Kenalog 10mg + bupivacaine 0.25% 1mL per level",
+    cpt: (side, levels) => "64483 (first), 64484 (additional), 77003",
+    info: "Transforaminal approach targeting nerve root sleeve."
+  },
+  LESI_TF: {
+    label: "Lumbar Transforaminal ESI",
+    abbreviation: "TFESI",
+    spine: "lumbar",
+    approach: "transforaminal",
+    position: "prone",
+    needle: "25-gauge 3\u00bd-inch",
+    levels: ["L3/L4","L4/L5","L5/S1"],
+    sides: true,
+    medications: "Kenalog 20mg + bupivacaine 0.25% 1.5mL",
+    cpt: (side, levels) => "64483 (first level), 64484 (additional), 77003",
+    info: "Subpedicular approach. Contrast confirmed epidural spread."
+  },
+  SIJ: {
+    label: "Sacroiliac Joint Injection",
+    abbreviation: "SIJ",
+    spine: "sacroiliac",
+    approach: "intra-articular",
+    position: "prone",
+    needle: "22-gauge 3\u00bd-inch",
+    levels: [],
+    sides: true,
+    medications: "Kenalog 40mg + bupivacaine 0.25% 2mL",
+    cpt: (side, levels) => {
+      if (side === "Bilateral") return "27096-50 (bilateral SIJ), 77003";
+      return "27096 (SIJ injection), 77003";
+    },
+    info: "Posterior inferior approach into SIJ joint cavity under fluoroscopy."
+  }
+};
+
+// ─── Event handlers ───────────────────────────────────────────────────────────
+function onAnesChange() {
+  const val = document.getElementById("anesthesiologist").value;
+  const ivBox = document.getElementById("ivSedation");
+  if (val === "Omar Othman, M.D.") { ivBox.checked = true; }
+  else if (val === "Local Anesthesia Only") { ivBox.checked = false; }
+}
+function onIVChange() {
+  const iv = document.getElementById("ivSedation").checked;
+  const anes = document.getElementById("anesthesiologist");
+  if (iv && anes.value === "Local Anesthesia Only") anes.value = "Omar Othman, M.D.";
+  if (!iv && anes.value === "Omar Othman, M.D.") anes.value = "Local Anesthesia Only";
+}
+
+function onProcedureChange() {
+  const key = document.getElementById("procedureType").value;
+  const section = document.getElementById("procedureSection");
+  const sideRow = document.getElementById("sideRow");
+  const levelsEl = document.getElementById("levels");
+  const cptBanner = document.getElementById("cptBanner");
+  const generate = document.getElementById("btnGenerate");
+
+  if (!key) {
+    section.style.display = "none";
+    generate.disabled = true;
+    return;
+  }
+
+  const p = PROCS[key];
+  section.style.display = "";
+  generate.disabled = false;
+
+  // Info box
+  document.getElementById("procInfo").innerHTML =
+    "<strong>" + p.label + "</strong> &nbsp;&middot;&nbsp; " + p.approach + " approach &nbsp;&middot;&nbsp; Position: " + p.position +
+    "<br />Medication: " + p.medications +
+    (p.info ? "<br /><em>" + p.info + "</em>" : "");
+
+  // Side / levels
+  if (p.sides || p.levels.length > 0) {
+    sideRow.style.display = "";
+    if (!p.sides) document.getElementById("side").parentElement.parentElement.style.display = "none";
+    else document.getElementById("side").parentElement.parentElement.style.display = "";
+
+    levelsEl.innerHTML = "";
+    p.levels.forEach(lv => {
+      const opt = document.createElement("option");
+      opt.value = opt.text = lv;
+      levelsEl.appendChild(opt);
+    });
+  } else {
+    sideRow.style.display = "none";
+  }
+
+  updateCPT();
+}
+
+function updateCPT() {
+  const key = document.getElementById("procedureType").value;
+  if (!key) return;
+  const p = PROCS[key];
+  const side = document.getElementById("side").value;
+  const levelsEl = document.getElementById("levels");
+  const levels = Array.from(levelsEl.selectedOptions).map(o => o.value);
+  const cptBanner = document.getElementById("cptBanner");
+  const cptStr = p.cpt(side, levels);
+  cptBanner.style.display = "";
+  cptBanner.innerHTML = "&#10003; <strong>CPT Codes:</strong> &nbsp;" + cptStr;
+}
+
+document.getElementById("side").addEventListener("change", updateCPT);
+document.getElementById("levels").addEventListener("change", updateCPT);
+
+// ─── Report text generator ────────────────────────────────────────────────────
+function buildReportText() {
+  const key    = document.getElementById("procedureType").value;
+  const p      = PROCS[key];
+  const name   = document.getElementById("patientName").value.trim() || "[Patient Name]";
+  const dob    = document.getElementById("dob").value || "[DOB]";
+  const dov    = document.getElementById("dov").value || "[Date]";
+  const phys   = document.getElementById("physician").value;
+  const anes   = document.getElementById("anesthesiologist").value;
+  const iv     = document.getElementById("ivSedation").checked;
+  const drl5   = document.getElementById("drl5").checked;
+  const side   = document.getElementById("side")?.value || "";
+  const levelsEl = document.getElementById("levels");
+  const levels = Array.from(levelsEl?.selectedOptions || []).map(o => o.value);
+
+  const needle = drl5 ? (p.needle.replace("3\u00bd-inch", "5-inch")) : p.needle;
+  const sideStr = side ? (side === "Bilateral" ? "bilateral " : side.toLowerCase() + " ") : "";
+  const levelStr = levels.length > 0 ? " at " + levels.join("/") : "";
+
+  const ivPara = iv
+    ? `IV sedation was administered by ${anes}.`
+    : `The patient declined IV sedation.`;
+
+  const anesLine = (anes !== "Local Anesthesia Only")
+    ? `Anesthesiologist: ${anes}`
+    : `Anesthesia: Local anesthesia only`;
+
+  const cptCodes = p.cpt(side, levels);
+
+  return {
+    title: `OPERATIVE REPORT — ${p.label.toUpperCase()}`,
+    sections: [
+      {
+        heading: "PATIENT INFORMATION",
+        body: `Patient Name: ${name}\nDate of Birth: ${dob}\nDate of Visit: ${dov}`
+      },
+      {
+        heading: "PROCEDURE",
+        body: `Procedure: ${p.label} (${p.abbreviation})\nDictated By: ${phys}\n${anesLine}\nCPT Codes: ${cptCodes}`
+      },
+      {
+        heading: "OPERATIVE REPORT",
+        body: [
+          `The patient was brought to the procedure room and positioned ${p.position} on the procedure table, padded appropriately for comfort and safety.`,
+          iv ? `IV access was established. ${ivPara}` : `${ivPara}`,
+          `The ${p.spine} region was prepped and draped in the usual sterile fashion.`,
+          `Under fluoroscopic guidance, a ${needle} needle was advanced ${sideStr}${p.approach === "interlaminar" ? "using a loss-of-resistance technique" : "to the target site"}${levelStr}.`,
+          `${p.medications.includes("contrast") || true ? "Position was confirmed with fluoroscopy." : ""} ${p.medications} was then injected without complication.`,
+          `The needle was removed and the patient tolerated the procedure well without any immediate complications.`,
+          `The patient was transferred to the recovery area and monitored per protocol.`
+        ].filter(Boolean).join("\n\n")
+      },
+      {
+        heading: "ATTESTATION",
+        body: `I, ${phys}, hereby attest that I was present for the key portions of this procedure and that the above report accurately reflects the care provided.\n\n\nSignature: ___________________________\nDictated By: ${phys}\nDate: ${dov}`
+      }
+    ]
+  };
+}
+
+// ─── Word document generation ─────────────────────────────────────────────────
+async function generateReport() {
+  const key = document.getElementById("procedureType").value;
+  if (!key) return;
+  const p = PROCS[key];
+
+  const status = document.getElementById("status");
+  const btn = document.getElementById("btnGenerate");
+  btn.disabled = true;
+  status.textContent = "Generating document...";
+
+  try {
+    const report = buildReportText();
+    const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } = docx;
+
+    const children = [];
+
+    // Clinic header
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "Pinnacle Pain Management Specialists", bold: true, size: 28, color: "0a3d6b" })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "908 North Elm Street, Suite 301  \u00b7  Hinsdale, IL 60521", size: 18, color: "555555" })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "Tel: 630-794-9999  \u00b7  Fax: 630-794-9998", size: 18, color: "555555" })]
+      }),
+      new Paragraph({ children: [new TextRun({ text: "" })] }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: report.title, bold: true, size: 22, color: "0a3d6b" })]
+      }),
+      new Paragraph({ children: [new TextRun({ text: "" })] })
+    );
+
+    // Sections
+    for (const sec of report.sections) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: sec.heading, bold: true, size: 20, color: "0a3d6b" })],
+          border: { bottom: { style: "single", size: 6, color: "0a3d6b" } }
+        })
+      );
+      sec.body.split("\n").forEach(line => {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: line, size: 20 })]
+          })
+        );
+      });
+      children.push(new Paragraph({ children: [new TextRun({ text: "" })] }));
+    }
+
+    const doc = new Document({
+      sections: [{ properties: {}, children }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    const name = document.getElementById("patientName").value.replace(/\s+/g,"_") || "Patient";
+    const dov  = document.getElementById("dov").value.replace(/-/g,"") || "date";
+    a.href     = url;
+    a.download = `OpReport_${p.abbreviation}_${name}_${dov}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    status.textContent = "\u2713 Document downloaded successfully.";
+  } catch (err) {
+    console.error(err);
+    status.style.color = "#e74c3c";
+    status.textContent = "Error generating document. Check console for details.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
